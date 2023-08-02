@@ -1,6 +1,7 @@
 'use strict';
 
 class Workout {
+  // initiating variables used later in the class. (PUBLIC INSTANCES)
   date = new Date();
   id = (Date.now() + '').slice(-10); //getting the last 10 digits of the time right now
   clicks = 0;
@@ -20,6 +21,7 @@ class Workout {
     } ${this.date.getDate()}`;
   }
 
+  //a public interface just to capture the number of clicks on the workout tab.
   click() {
     this.clicks++;
   }
@@ -60,9 +62,10 @@ class Cycling extends Workout {
     return this.speed;
   }
 }
-const run1 = new Running([39, -12], 5.2, 24, 178);
-const cycling1 = new Cycling([39, -12], 27, 95, 523);
-console.log(run1, cycling1);
+// checking if above code works.
+// const run1 = new Running([39, -12], 5.2, 24, 178);
+// const cycling1 = new Cycling([39, -12], 27, 95, 523);
+// console.log(run1, cycling1);
 
 ////////////////////////////////////////////
 // APPLICATION ARCHIECTURE
@@ -81,21 +84,24 @@ class App {
   #mapEvent;
   #workouts = [];
 
-  // no parameter needed for the the constructor method. just the codes to be worked on automatically.
+  // no parameter needed for the the constructor method. just the codes to be carried out upon initiating the app.
   constructor() {
-    //Locating the codes here enable the methods be called immediately and automatically.
+    //Locating the codes here enable the methods be called immediately app is loaded.
+    // Get user's position
     this._getPosition();
 
     // Get data from local storage
+    // Needs to be executed when the app loads.
     this._getLocalStorage();
 
     // Attach event handlers
-    //the bind keyword is always necessary when using the 'this' keyword a callback function on an .addEventListener in a class.
+    //the bind keyword is always necessary when using the 'this' keyword in a callback function on an .addEventListener in a class.
     form.addEventListener('submit', this._newWorkout.bind(this));
 
     // switch/toggle the elevation and cadence input fields upon change
     inputType.addEventListener('change', this._toggleElevationField); //doesnt have the bind method because the 'this' keyword wasnt used in the method
 
+    // Move the map to the section of the workout that is clicked on.
     containerWorkouts.addEventListener('click', this._moveToPopup.bind(this));
   }
 
@@ -120,7 +126,6 @@ class App {
     );
 
     const coords = [latitude, longitude];
-    console.log(this);
     this.#map = L.map('map').setView(coords, this.#mapZoomLevel);
 
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -130,6 +135,10 @@ class App {
 
     // Handling clicks on map
     this.#map.on('click', this._showForm.bind(this));
+
+    this.#workouts.forEach(work => {
+      this._renderWorkoutMarker(work);
+    }); //this method needs to be called here, because it is only at this point that the map has been fully loaded. if the code is inserted at the end of the code with the renderWorkout method, the map wouldnt have loaded by then. hence it will return undefined.
   }
 
   _showForm(mapE) {
@@ -159,6 +168,7 @@ class App {
 
   _newWorkout(e) {
     // helper functions
+    // Using the spread operator to put the arguments into an array to make them iterable.
     const validInputs = (...inputs) =>
       inputs.every(inp => Number.isFinite(inp));
     const allPositive = (...inputs) => inputs.every(inp => inp > 0);
@@ -186,6 +196,7 @@ class App {
       )
         return alert('Inputs have to be positive numbers!');
 
+      // create new object based on TYPE.
       workout = new Running([lat, lng], distance, duration, cadence);
     }
 
@@ -200,9 +211,8 @@ class App {
 
       workout = new Cycling([lat, lng], distance, duration, elevation);
     }
-    // Add new object to workout array
+    // Add .push() object(workout) to #workouts array
     this.#workouts.push(workout);
-    console.log(workout);
 
     // Render workout on map as marker
     this._renderWorkoutMarker(workout); //no need for the bind method because this is not a call back function of any other function. we are calling it outselves.
@@ -293,7 +303,6 @@ class App {
 
     // Event delegation
     const workoutEL = e.target.closest('.workout'); //the element with the workout class that is targeted here is in the html variable.
-    console.log(workoutEL);
 
     if (!workoutEL) return; //guard clause
 
@@ -301,20 +310,38 @@ class App {
     const workout = this.#workouts.find(
       work => work.id === workoutEL.dataset.id
     );
-    console.log(workout);
+
     this.#map.setView(workout.coords, this.#mapZoomLevel, {
-      animate: true,
+      animate: true, //for a smooth movement on the map.
       pan: {
         duration: 1,
       },
     });
     // Using the public interface
-    workout.click();
+    // workout.click();
   }
 
   _setLocalStorage() {
-    localStorage.setItem('workouts', JSON.stringify(this.#workouts));
+    localStorage.setItem('workouts', JSON.stringify(this.#workouts)); //JSON.stringify() converts object to string.
+  }
+
+  _getLocalStorage() {
+    const data = JSON.parse(localStorage.getItem('workouts')); //JSON.parse() reverses the previous string to object
+
+    if (!data) return; //return if there's no data to be worked on.
+
+    this.#workouts = data; //restoring the data in the browser's storage to the #workouts array, upon reload.
+
+    this.#workouts.forEach(work => {
+      this._renderWorkout(work);
+    }); //restoring the objects{data} to the UI from the #workouts array.
+  }
+
+  reset() {
+    localStorage.removeItem('workouts');
+    location.reload();
   }
 }
 
-const app = new App(); //arguments arent needed while creating the empty object
+const app = new App(); //arguments arent needed while creating the empty object.
+// From the Architecture: the class App will call the (running or cycling) child class, which will in  turn use the prototype of their parent class.
